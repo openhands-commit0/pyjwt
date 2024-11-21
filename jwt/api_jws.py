@@ -137,9 +137,8 @@ class PyJWS:
 
         if is_payload_detached:
             header['b64'] = False
-
-        if sort_headers:
-            header = dict(sorted(header.items()))
+            if not payload:
+                raise InvalidTokenError('Payload cannot be empty when using detached content')
 
         json_header = json.dumps(header, separators=(',', ':'), cls=json_encoder).encode('utf-8')
         header_input = base64url_encode(json_header)
@@ -185,6 +184,16 @@ class PyJWS:
                 - payload: The decoded payload
                 - signature: The signature of the JWT
         """
+        if 'verify' in kwargs:
+            warnings.warn(
+                'The verify parameter is deprecated. '
+                'Please use verify_signature in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_signature'] = kwargs.pop('verify')
+
         for kwarg in kwargs:
             warnings.warn(
                 f'The "{kwarg}" argument is not supported and will be ignored.',
@@ -259,7 +268,13 @@ class PyJWS:
                 raise InvalidKeyError('When alg = "none", key must be empty or "none"')
             if signature != b'':
                 raise InvalidSignatureError('Signature verification failed')
-        elif merged_options['verify_signature']:
+            return {
+                'header': header,
+                'payload': payload,
+                'signature': signature
+            }
+
+        if merged_options['verify_signature']:
             try:
                 alg_obj = self._algorithms[alg]
                 key = alg_obj.prepare_key(key)
