@@ -316,6 +316,14 @@ class PyJWS:
             except Exception:
                 pass
 
+        if not algorithms and not merged_options['verify_signature']:
+            warnings.warn(
+                'It is required that you pass in a value for the "algorithms" argument when calling decode(). '
+                'This argument will be mandatory in a future version.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+
         return {
             'header': header,
             'payload': payload,
