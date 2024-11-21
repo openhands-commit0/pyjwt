@@ -143,6 +143,9 @@ class PyJWS:
             if not payload:
                 raise InvalidTokenError('Payload cannot be empty when using detached content')
 
+        if sort_headers:
+            header = dict(sorted(header.items()))
+
         json_header = json.dumps(header, separators=(',', ':'), cls=json_encoder).encode('utf-8')
         header_input = base64url_encode(json_header)
 
@@ -340,8 +343,11 @@ class PyJWS:
             except Exception as e:
                 raise InvalidTokenError('Unable to parse signature key: %s' % e)
 
-            if not alg_obj.verify(signing_input if header.get('b64', True) else payload, key, signature):
-                raise InvalidSignatureError('Signature verification failed')
+            try:
+                if not alg_obj.verify(signing_input if header.get('b64', True) else payload, key, signature):
+                    raise InvalidSignatureError('Signature verification failed')
+            except Exception as e:
+                raise InvalidSignatureError('Signature verification failed: %s' % e)
 
         return {
             'header': header,
