@@ -57,6 +57,17 @@ class PyJWK:
     def public_key_use(self) -> str | None:
         return self._jwk_data.get('use')
 
+    @property
+    def key_type(self) -> str:
+        return self._jwk_data.get('kty')
+
+    @classmethod
+    def from_dict(cls, obj: JWKDict, algorithm: str | None=None) -> 'PyJWK':
+        """Creates a PyJWK from a dict object."""
+        if not isinstance(obj, dict):
+            raise InvalidKeyError('Invalid JWK format')
+        return cls(obj, algorithm)
+
 class PyJWKSet:
 
     def __init__(self, keys: list[JWKDict]) -> None:

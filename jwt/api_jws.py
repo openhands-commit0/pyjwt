@@ -120,11 +120,15 @@ class PyJWS:
 
         # Header
         header = {'alg': algorithm}
-        if self.header_typ is not None:
+        if self.header_typ is not None and 'typ' not in (headers or {}):
             header['typ'] = self.header_typ
 
         if headers:
             header.update(headers)
+            if header.get('typ') == '':
+                del header['typ']
+            elif header.get('typ') is None:
+                del header['typ']
 
         if is_payload_detached:
             header['b64'] = False
@@ -176,6 +180,13 @@ class PyJWS:
                 - payload: The decoded payload
                 - signature: The signature of the JWT
         """
+        for kwarg in kwargs:
+            warnings.warn(
+                f'The "{kwarg}" argument is not supported and will be ignored.',
+                category=RemovedInPyjwt3Warning,
+                stacklevel=2
+            )
+
         merged_options = {**self.options}
         if options:
             if not isinstance(options, dict):
@@ -242,7 +253,11 @@ class PyJWS:
         if merged_options['verify_signature']:
             try:
                 alg_obj = self._algorithms[alg]
-                key = alg_obj.prepare_key(key)
+                if alg == 'none':
+                    if key not in [None, '', 'none']:
+                        raise InvalidKeyError('When alg = "none", key must be empty or "none"')
+                else:
+                    key = alg_obj.prepare_key(key)
             except KeyError:
                 raise InvalidAlgorithmError('Algorithm not supported')
             except Exception as e:
