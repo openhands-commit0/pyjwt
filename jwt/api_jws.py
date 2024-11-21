@@ -197,6 +197,56 @@ class PyJWS:
             options = options or {}
             options['verify_signature'] = kwargs.pop('verify')
 
+        if 'verify_exp' in kwargs:
+            warnings.warn(
+                'The verify_exp parameter is deprecated. '
+                'Please use verify_exp in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_exp'] = kwargs.pop('verify_exp')
+
+        if 'verify_iat' in kwargs:
+            warnings.warn(
+                'The verify_iat parameter is deprecated. '
+                'Please use verify_iat in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_iat'] = kwargs.pop('verify_iat')
+
+        if 'verify_nbf' in kwargs:
+            warnings.warn(
+                'The verify_nbf parameter is deprecated. '
+                'Please use verify_nbf in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_nbf'] = kwargs.pop('verify_nbf')
+
+        if 'verify_aud' in kwargs:
+            warnings.warn(
+                'The verify_aud parameter is deprecated. '
+                'Please use verify_aud in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_aud'] = kwargs.pop('verify_aud')
+
+        if 'verify_iss' in kwargs:
+            warnings.warn(
+                'The verify_iss parameter is deprecated. '
+                'Please use verify_iss in options instead.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            options = options or {}
+            options['verify_iss'] = kwargs.pop('verify_iss')
+
         for kwarg in kwargs:
             warnings.warn(
                 f'The "{kwarg}" argument is not supported and will be ignored.',
@@ -285,6 +335,8 @@ class PyJWS:
                 key = alg_obj.prepare_key(key)
             except KeyError:
                 raise InvalidAlgorithmError('Algorithm not supported')
+            except InvalidKeyError:
+                raise
             except Exception as e:
                 raise InvalidTokenError('Unable to parse signature key: %s' % e)
 
