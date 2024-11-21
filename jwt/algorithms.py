@@ -161,8 +161,11 @@ class HMACAlgorithm(Algorithm):
         self.hash_alg = hash_alg
 
     def prepare_key(self, key: Union[str, bytes]) -> bytes:
+        if not isinstance(key, (str, bytes)):
+            raise TypeError('Expected a string value')
         key = force_bytes(key)
-        return key
+        if is_pem_format(key) or is_ssh_key(key):
+            raise InvalidKeyError('The specified key is an asymmetric key or x509 certificate and should not be used as an HMAC secret.')
 
     def sign(self, msg: bytes, key: Union[str, bytes]) -> bytes:
         key = self.prepare_key(key)

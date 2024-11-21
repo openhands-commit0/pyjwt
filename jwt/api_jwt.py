@@ -56,7 +56,7 @@ class PyJWT:
             raise DecodeError('Invalid payload string: must be a json object')
         return payload
 
-    def encode(self, payload: dict[str, Any], key: str | bytes | AllowedPrivateKeys, algorithm: str | None=None, headers: dict[str, Any] | None=None, json_encoder: type[json.JSONEncoder] | None=None) -> str:
+    def encode(self, payload: dict[str, Any], key: str | bytes | AllowedPrivateKeys | None=None, algorithm: str | None=None, headers: dict[str, Any] | None=None, json_encoder: type[json.JSONEncoder] | None=None) -> str:
         """
         Encode a JWT from a payload and optional headers.
 
@@ -74,15 +74,21 @@ class PyJWT:
             raise TypeError('Payload must be a dict')
 
         # Add reserved claims
-        if 'exp' in payload and not isinstance(payload['exp'], (int, float)):
-            payload['exp'] = timegm(payload['exp'].utctimetuple())
-        if 'iat' in payload and not isinstance(payload['iat'], (int, float)):
-            payload['iat'] = timegm(payload['iat'].utctimetuple())
-        if 'nbf' in payload and not isinstance(payload['nbf'], (int, float)):
-            payload['nbf'] = timegm(payload['nbf'].utctimetuple())
+        for time_claim in ['exp', 'iat', 'nbf']:
+            if time_claim in payload:
+                value = payload[time_claim]
+                if isinstance(value, datetime):
+                    payload[time_claim] = timegm(value.utctimetuple())
+                elif isinstance(value, str):
+                    try:
+                        payload[time_claim] = int(value)
+                    except ValueError:
+                        raise TypeError(f'{time_claim} must be a valid timestamp')
+                elif not isinstance(value, (int, float)):
+                    raise TypeError(f'{time_claim} must be a valid timestamp')
 
         json_payload = self._encode_payload(payload, headers, json_encoder)
-        return api_jws.encode(json_payload, key, algorithm, headers)
+        return api_jws.encode(json_payload, key, algorithm, headers, json_encoder)
 
     def decode_complete(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None, **kwargs: Any) -> dict[str, Any]:
         """
@@ -108,19 +114,22 @@ class PyJWT:
         if merged_options['verify_exp'] and 'exp' in payload:
             now = kwargs.get('now', datetime.now(timezone.utc))
             exp = datetime.fromtimestamp(payload['exp'], tz=timezone.utc)
-            if now > exp:
+            leeway = timedelta(seconds=kwargs.get('leeway', 0))
+            if now > exp + leeway:
                 raise ExpiredSignatureError('Signature has expired')
 
         if merged_options['verify_nbf'] and 'nbf' in payload:
             now = kwargs.get('now', datetime.now(timezone.utc))
             nbf = datetime.fromtimestamp(payload['nbf'], tz=timezone.utc)
-            if now < nbf:
+            leeway = timedelta(seconds=kwargs.get('leeway', 0))
+            if now < nbf - leeway:
                 raise ImmatureSignatureError('The token is not yet valid (nbf)')
 
         if merged_options['verify_iat'] and 'iat' in payload:
             now = kwargs.get('now', datetime.now(timezone.utc))
             iat = datetime.fromtimestamp(payload['iat'], tz=timezone.utc)
-            if now < iat:
+            leeway = timedelta(seconds=kwargs.get('leeway', 0))
+            if now < iat - leeway:
                 raise InvalidIssuedAtError('Issued at claim (iat) cannot be in the future')
 
         if merged_options['verify_iss']:
@@ -139,8 +148,8 @@ class PyJWT:
                 audience = payload['aud']
                 if isinstance(audience, str):
                     audience = [audience]
-                if not isinstance(audience, Iterable):
-                    raise InvalidAudienceError('Invalid audience')
+                if not isinstance(audience, Iterable) or not all(isinstance(aud, str) for aud in audience):
+                    raise InvalidAudienceError('Invalid claim format in token')
                 if expected_audience not in audience:
                     raise InvalidAudienceError('Invalid audience')
 

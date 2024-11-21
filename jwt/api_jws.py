@@ -96,7 +96,7 @@ class PyJWS:
 
         return header
 
-    def encode(self, payload: bytes, key: str | bytes | AllowedPrivateKeys, algorithm: str | None=None, headers: dict[str, Any] | None=None) -> str:
+    def encode(self, payload: bytes, key: str | bytes | AllowedPrivateKeys | None=None, algorithm: str | None=None, headers: dict[str, Any] | None=None, json_encoder: type[json.JSONEncoder] | None=None, is_payload_detached: bool=False) -> str:
         """Creates a JWT using the given algorithm.
 
         Args:
@@ -104,6 +104,8 @@ class PyJWS:
             key: The key to use for signing the claim. Note: if the algorithm is None, the key is not used
             algorithm: The signing algorithm to use. If none is specified then 'none' is used.
             headers: A dict of additional headers to use.
+            json_encoder: A custom JSON encoder to use for encoding the JWT.
+            is_payload_detached: If True, the payload will be detached from the JWS.
         """
         # Check that we have a mapping
         if not isinstance(payload, bytes):
@@ -120,16 +122,28 @@ class PyJWS:
         if headers:
             header.update(headers)
 
-        json_header = json.dumps(header, separators=(',', ':'), cls=None).encode('utf-8')
+        if is_payload_detached:
+            header['b64'] = False
+
+        json_header = json.dumps(header, separators=(',', ':'), cls=json_encoder).encode('utf-8')
         header_input = base64url_encode(json_header)
 
-        payload_input = base64url_encode(payload)
+        if is_payload_detached:
+            payload_input = b''
+        else:
+            payload_input = base64url_encode(payload)
+
         signing_input = b'.'.join([header_input, payload_input])
 
         try:
             alg_obj = self._algorithms[algorithm]
-            key = alg_obj.prepare_key(key)
-            signature = alg_obj.sign(signing_input, key)
+            if algorithm == 'none':
+                key = None
+            elif key is None:
+                raise TypeError('Key is required when algorithm is not "none"')
+            else:
+                key = alg_obj.prepare_key(key)
+            signature = alg_obj.sign(signing_input if not is_payload_detached else payload, key)
         except Exception as e:
             raise TypeError('Unable to encode JWT: %s' % e)
 
