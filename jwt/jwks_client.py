@@ -36,7 +36,10 @@ class PyJWKClient:
                 response = urllib.request.urlopen(request, timeout=self.timeout, context=self.ssl_context)
             else:
                 response = urllib.request.urlopen(request, timeout=self.timeout)
-            return response.read().decode('utf-8')
+            data = response.read()
+            if isinstance(data, str):
+                return data
+            return data.decode('utf-8')
         except URLError as e:
             raise PyJWKClientConnectionError(f'Failed to fetch JWKS from {self.uri}. Error: {str(e)}')
 

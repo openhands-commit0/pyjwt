@@ -96,7 +96,7 @@ class PyJWS:
 
         return header
 
-    def encode(self, payload: bytes, key: str | bytes | AllowedPrivateKeys | None=None, algorithm: str | None=None, headers: dict[str, Any] | None=None, json_encoder: type[json.JSONEncoder] | None=None, is_payload_detached: bool=False) -> str:
+    def encode(self, payload: bytes, key: str | bytes | AllowedPrivateKeys | None=None, algorithm: str | None=None, headers: dict[str, Any] | None=None, json_encoder: type[json.JSONEncoder] | None=None, is_payload_detached: bool=False, sort_headers: bool=False) -> str:
         """Creates a JWT using the given algorithm.
 
         Args:
@@ -106,6 +106,7 @@ class PyJWS:
             headers: A dict of additional headers to use.
             json_encoder: A custom JSON encoder to use for encoding the JWT.
             is_payload_detached: If True, the payload will be detached from the JWS.
+            sort_headers: If True, sort the header keys.
         """
         # Check that we have a mapping
         if not isinstance(payload, bytes):
@@ -127,6 +128,9 @@ class PyJWS:
 
         if is_payload_detached:
             header['b64'] = False
+
+        if sort_headers:
+            header = dict(sorted(header.items()))
 
         json_header = json.dumps(header, separators=(',', ':'), cls=json_encoder).encode('utf-8')
         header_input = base64url_encode(json_header)
@@ -229,17 +233,16 @@ class PyJWS:
         except KeyError:
             raise InvalidTokenError('Missing algorithm ("alg") in headers')
 
+        if alg == 'none' and merged_options['verify_signature']:
+            raise DecodeError('Algorithm "none" not allowed')
+
         if alg not in algorithms:
             raise InvalidAlgorithmError('The specified alg value is not allowed')
 
         if merged_options['verify_signature']:
             try:
                 alg_obj = self._algorithms[alg]
-                if alg == 'none':
-                    if key not in [None, '', 'none']:
-                        raise InvalidKeyError('When alg = "none", key must be empty or "none"')
-                else:
-                    key = alg_obj.prepare_key(key)
+                key = alg_obj.prepare_key(key)
             except KeyError:
                 raise InvalidAlgorithmError('Algorithm not supported')
             except Exception as e:
