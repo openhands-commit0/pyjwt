@@ -324,6 +324,14 @@ class PyJWS:
                 stacklevel=2
             )
 
+        if not merged_options['verify_signature'] and not algorithms:
+            warnings.warn(
+                'The "algorithms" argument is not optional when "verify_signature" is False. '
+                'This argument will be mandatory in a future version.',
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+
         return {
             'header': header,
             'payload': payload,
