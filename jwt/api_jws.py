@@ -123,6 +123,9 @@ class PyJWS:
         if algorithm not in self._valid_algs:
             raise InvalidAlgorithmError('Algorithm not supported')
 
+        if algorithm != 'none' and key is None:
+            raise InvalidKeyError('Key is required when algorithm is not "none"')
+
         # Header
         header = {'alg': algorithm}
         if self.header_typ is not None and 'typ' not in (headers or {}):
@@ -277,6 +280,8 @@ class PyJWS:
         if merged_options['verify_signature']:
             try:
                 alg_obj = self._algorithms[alg]
+                if key is None:
+                    raise InvalidKeyError('Key is required when algorithm is not "none"')
                 key = alg_obj.prepare_key(key)
             except KeyError:
                 raise InvalidAlgorithmError('Algorithm not supported')
