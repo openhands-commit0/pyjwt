@@ -49,6 +49,14 @@ class PyJWK:
             raise PyJWKError(f'Unable to find an algorithm for key: {self._jwk_data}')
         self.key = self.Algorithm.from_jwk(self._jwk_data)
 
+    @property
+    def key_id(self) -> str | None:
+        return self._jwk_data.get('kid')
+
+    @property
+    def public_key_use(self) -> str | None:
+        return self._jwk_data.get('use')
+
 class PyJWKSet:
 
     def __init__(self, keys: list[JWKDict]) -> None:
@@ -71,8 +79,25 @@ class PyJWKSet:
                 return key
         raise KeyError(f'keyset has no key for kid: {kid}')
 
+    @classmethod
+    def from_dict(cls, obj: dict[str, Any]) -> 'PyJWKSet':
+        """Creates a PyJWKSet from a dict object."""
+        if not isinstance(obj, dict):
+            raise PyJWKSetError('Invalid JWK Set value')
+        keys = obj.get('keys', [])
+        return cls(keys)
+
+    @classmethod
+    def from_json(cls, data: str) -> 'PyJWKSet':
+        """Creates a PyJWKSet from a JSON-encoded string."""
+        try:
+            obj = json.loads(data)
+        except ValueError as e:
+            raise PyJWKSetError(f'Invalid JWK Set value: {str(e)}')
+        return cls.from_dict(obj)
+
 class PyJWTSetWithTimestamp:
 
-    def __init__(self, jwk_set: PyJWKSet):
+    def __init__(self, jwk_set: PyJWKSet, timestamp: float | None=None):
         self.jwk_set = jwk_set
-        self.timestamp = time.monotonic()
+        self.timestamp = timestamp if timestamp is not None else time.monotonic()
