@@ -155,7 +155,7 @@ class PyJWS:
 
         return encoded_jwt.decode('utf-8')
 
-    def decode_complete(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None, detached_payload: bytes | None=None) -> dict[str, Any]:
+    def decode_complete(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None, detached_payload: bytes | None=None, **kwargs: Any) -> dict[str, Any]:
         """Decodes a JWT and returns a dict of the token contents.
 
         Args:
@@ -164,6 +164,7 @@ class PyJWS:
             algorithms: A list of allowed algorithms. If None, default to the algorithms registered.
             options: A dict of options for decoding. If None, use default options.
             detached_payload: The detached payload to use for verification.
+            **kwargs: Additional options for decoding.
 
         Returns:
             A dict including:
@@ -171,6 +172,12 @@ class PyJWS:
                 - payload: The decoded payload
                 - signature: The signature of the JWT
         """
+        merged_options = {**self.options}
+        if options:
+            if not isinstance(options, dict):
+                raise TypeError('options must be a dict')
+            merged_options.update(options)
+
         if isinstance(jwt, str):
             jwt = jwt.encode('utf-8')
 
@@ -214,7 +221,7 @@ class PyJWS:
         if algorithms is None:
             algorithms = list(self._valid_algs)
 
-        if not algorithms and self.options['verify_signature']:
+        if not algorithms and merged_options['verify_signature']:
             raise DecodeError('No algorithms were specified')
 
         try:
@@ -225,20 +232,21 @@ class PyJWS:
         if alg not in algorithms:
             raise InvalidAlgorithmError('The specified alg value is not allowed')
 
-        try:
-            alg_obj = self._algorithms[alg]
-            if alg == 'none':
-                if key not in [None, '', 'none']:
-                    raise InvalidKeyError('When alg = "none", key must be empty or "none"')
-            else:
-                key = alg_obj.prepare_key(key)
-        except KeyError:
-            raise InvalidAlgorithmError('Algorithm not supported')
-        except Exception as e:
-            raise InvalidTokenError('Unable to parse signature key: %s' % e)
+        if merged_options['verify_signature']:
+            try:
+                alg_obj = self._algorithms[alg]
+                if alg == 'none':
+                    if key not in [None, '', 'none']:
+                        raise InvalidKeyError('When alg = "none", key must be empty or "none"')
+                else:
+                    key = alg_obj.prepare_key(key)
+            except KeyError:
+                raise InvalidAlgorithmError('Algorithm not supported')
+            except Exception as e:
+                raise InvalidTokenError('Unable to parse signature key: %s' % e)
 
-        if not alg_obj.verify(signing_input if header.get('b64', True) else payload, key, signature):
-            raise InvalidSignatureError('Signature verification failed')
+            if not alg_obj.verify(signing_input if header.get('b64', True) else payload, key, signature):
+                raise InvalidSignatureError('Signature verification failed')
 
         return {
             'header': header,
@@ -246,12 +254,12 @@ class PyJWS:
             'signature': signature
         }
 
-    def decode(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None) -> bytes:
+    def decode(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None, detached_payload: bytes | None=None, **kwargs: Any) -> bytes:
         """Decodes a JWT and returns the payload.
 
         This is a shortcut to :meth:`decode_complete()` that returns just the payload.
         """
-        decoded = self.decode_complete(jwt, key, algorithms, options)
+        decoded = self.decode_complete(jwt, key, algorithms, options, detached_payload, **kwargs)
         return decoded['payload']
 _jws_global_obj = PyJWS()
 encode = _jws_global_obj.encode

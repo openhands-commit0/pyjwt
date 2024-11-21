@@ -33,6 +33,9 @@ def to_base64url_uint(val: int) -> bytes:
     if val < 0:
         raise ValueError('Must be a positive integer')
     
+    if val == 0:
+        return b'AA'
+    
     int_bytes = val.to_bytes((val.bit_length() + 7) // 8, byteorder='big')
     return base64url_encode(int_bytes)
 
