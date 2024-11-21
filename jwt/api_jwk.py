@@ -68,6 +68,15 @@ class PyJWK:
             raise InvalidKeyError('Invalid JWK format')
         return cls(obj, algorithm)
 
+    @classmethod
+    def from_json(cls, data: str, algorithm: str | None=None) -> 'PyJWK':
+        """Creates a PyJWK from a JSON-encoded string."""
+        try:
+            obj = json.loads(data)
+        except ValueError as e:
+            raise InvalidKeyError(f'Invalid JWK format: {str(e)}')
+        return cls.from_dict(obj, algorithm)
+
 class PyJWKSet:
 
     def __init__(self, keys: list[JWKDict]) -> None:

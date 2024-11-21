@@ -35,6 +35,8 @@ class PyJWS:
         """
         if not isinstance(alg_obj, Algorithm):
             raise TypeError('Algorithm must be an instance of Algorithm')
+        if alg_id in self._algorithms:
+            raise ValueError(f'Algorithm {alg_id} is already registered')
         self._algorithms[alg_id] = alg_obj
         self._valid_algs.add(alg_id)
 
@@ -72,6 +74,9 @@ class PyJWS:
         Note: The signature is not verified so the header parameters
         should not be fully trusted until signature verification is complete
         """
+        if not isinstance(jwt, (str, bytes)):
+            raise InvalidTokenError('Invalid token type')
+
         if isinstance(jwt, str):
             jwt = jwt.encode('utf-8')
 
@@ -244,20 +249,20 @@ class PyJWS:
         except KeyError:
             raise InvalidTokenError('Missing algorithm ("alg") in headers')
 
-        if alg == 'none' and merged_options['verify_signature']:
-            raise DecodeError('Algorithm "none" not allowed')
-
         if alg not in algorithms:
             raise InvalidAlgorithmError('The specified alg value is not allowed')
 
-        if merged_options['verify_signature']:
+        if alg == 'none':
+            if merged_options['verify_signature']:
+                raise DecodeError('Algorithm "none" not allowed')
+            if key not in [None, '', 'none']:
+                raise InvalidKeyError('When alg = "none", key must be empty or "none"')
+            if signature != b'':
+                raise InvalidSignatureError('Signature verification failed')
+        elif merged_options['verify_signature']:
             try:
                 alg_obj = self._algorithms[alg]
-                if alg == 'none':
-                    if key not in [None, '', 'none']:
-                        raise InvalidKeyError('When alg = "none", key must be empty or "none"')
-                else:
-                    key = alg_obj.prepare_key(key)
+                key = alg_obj.prepare_key(key)
             except KeyError:
                 raise InvalidAlgorithmError('Algorithm not supported')
             except Exception as e:
