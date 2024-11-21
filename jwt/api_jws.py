@@ -190,65 +190,25 @@ class PyJWS:
                 - payload: The decoded payload
                 - signature: The signature of the JWT
         """
-        if 'verify' in kwargs:
-            warnings.warn(
-                'The verify parameter is deprecated. '
-                'Please use verify_signature in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_signature'] = kwargs.pop('verify')
+        deprecated_kwargs = {
+            'verify': 'verify_signature',
+            'verify_exp': 'verify_exp',
+            'verify_iat': 'verify_iat',
+            'verify_nbf': 'verify_nbf',
+            'verify_aud': 'verify_aud',
+            'verify_iss': 'verify_iss',
+        }
 
-        if 'verify_exp' in kwargs:
-            warnings.warn(
-                'The verify_exp parameter is deprecated. '
-                'Please use verify_exp in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_exp'] = kwargs.pop('verify_exp')
-
-        if 'verify_iat' in kwargs:
-            warnings.warn(
-                'The verify_iat parameter is deprecated. '
-                'Please use verify_iat in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_iat'] = kwargs.pop('verify_iat')
-
-        if 'verify_nbf' in kwargs:
-            warnings.warn(
-                'The verify_nbf parameter is deprecated. '
-                'Please use verify_nbf in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_nbf'] = kwargs.pop('verify_nbf')
-
-        if 'verify_aud' in kwargs:
-            warnings.warn(
-                'The verify_aud parameter is deprecated. '
-                'Please use verify_aud in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_aud'] = kwargs.pop('verify_aud')
-
-        if 'verify_iss' in kwargs:
-            warnings.warn(
-                'The verify_iss parameter is deprecated. '
-                'Please use verify_iss in options instead.',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-            options = options or {}
-            options['verify_iss'] = kwargs.pop('verify_iss')
+        options = options or {}
+        for old_name, new_name in deprecated_kwargs.items():
+            if old_name in kwargs:
+                warnings.warn(
+                    f'The {old_name} parameter is deprecated. '
+                    f'Please use {new_name} in options instead.',
+                    category=DeprecationWarning,
+                    stacklevel=2
+                )
+                options[new_name] = kwargs.pop(old_name)
 
         for kwarg in kwargs:
             warnings.warn(
@@ -348,6 +308,11 @@ class PyJWS:
                     raise InvalidSignatureError('Signature verification failed')
             except Exception as e:
                 raise InvalidSignatureError('Signature verification failed: %s' % e)
+        else:
+            try:
+                alg_obj = self._algorithms[alg]
+            except KeyError:
+                raise InvalidAlgorithmError('Algorithm not supported')
 
         return {
             'header': header,
