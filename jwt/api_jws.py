@@ -118,7 +118,10 @@ class PyJWS:
             raise InvalidAlgorithmError('Algorithm not supported')
 
         # Header
-        header = {'typ': self.header_typ, 'alg': algorithm}
+        header = {'alg': algorithm}
+        if self.header_typ is not None:
+            header['typ'] = self.header_typ
+
         if headers:
             header.update(headers)
 
@@ -152,7 +155,7 @@ class PyJWS:
 
         return encoded_jwt.decode('utf-8')
 
-    def decode_complete(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None) -> dict[str, Any]:
+    def decode_complete(self, jwt: str | bytes, key: str | bytes | AllowedPublicKeys | None=None, algorithms: list[str] | None=None, options: dict[str, Any] | None=None, detached_payload: bytes | None=None) -> dict[str, Any]:
         """Decodes a JWT and returns a dict of the token contents.
 
         Args:
@@ -160,6 +163,7 @@ class PyJWS:
             key: The key to use for verifying the claim. Note: if the algorithm is 'none', the key is not used.
             algorithms: A list of allowed algorithms. If None, default to the algorithms registered.
             options: A dict of options for decoding. If None, use default options.
+            detached_payload: The detached payload to use for verification.
 
         Returns:
             A dict including:
@@ -192,10 +196,15 @@ class PyJWS:
         if not isinstance(header, dict):
             raise DecodeError('Invalid header string: must be a json object')
 
-        try:
-            payload = base64url_decode(payload_segment)
-        except (TypeError, binascii.Error):
-            raise DecodeError('Invalid payload padding')
+        if header.get('b64', True):
+            try:
+                payload = base64url_decode(payload_segment)
+            except (TypeError, binascii.Error):
+                raise DecodeError('Invalid payload padding')
+        else:
+            if detached_payload is None:
+                raise DecodeError('It is required that you pass in a value for the "detached_payload" argument to decode a message using unencoded payload.')
+            payload = detached_payload
 
         try:
             signature = base64url_decode(crypto_segment)
@@ -218,13 +227,17 @@ class PyJWS:
 
         try:
             alg_obj = self._algorithms[alg]
-            key = alg_obj.prepare_key(key)
+            if alg == 'none':
+                if key not in [None, '', 'none']:
+                    raise InvalidKeyError('When alg = "none", key must be empty or "none"')
+            else:
+                key = alg_obj.prepare_key(key)
         except KeyError:
             raise InvalidAlgorithmError('Algorithm not supported')
         except Exception as e:
             raise InvalidTokenError('Unable to parse signature key: %s' % e)
 
-        if not alg_obj.verify(signing_input, key, signature):
+        if not alg_obj.verify(signing_input if header.get('b64', True) else payload, key, signature):
             raise InvalidSignatureError('Signature verification failed')
 
         return {
