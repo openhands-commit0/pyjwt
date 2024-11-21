@@ -290,14 +290,16 @@ class PyJWS:
                 'signature': signature
             }
 
+        try:
+            alg_obj = self._algorithms[alg]
+        except KeyError:
+            raise InvalidAlgorithmError('Algorithm not supported')
+
         if merged_options['verify_signature']:
             try:
-                alg_obj = self._algorithms[alg]
                 if key is None:
                     raise InvalidKeyError('Key is required when algorithm is not "none"')
                 key = alg_obj.prepare_key(key)
-            except KeyError:
-                raise InvalidAlgorithmError('Algorithm not supported')
             except InvalidKeyError:
                 raise
             except Exception as e:
@@ -308,11 +310,6 @@ class PyJWS:
                     raise InvalidSignatureError('Signature verification failed')
             except Exception as e:
                 raise InvalidSignatureError('Signature verification failed: %s' % e)
-        else:
-            try:
-                alg_obj = self._algorithms[alg]
-            except KeyError:
-                raise InvalidAlgorithmError('Algorithm not supported')
 
         return {
             'header': header,
