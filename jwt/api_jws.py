@@ -310,6 +310,11 @@ class PyJWS:
                     raise InvalidSignatureError('Signature verification failed')
             except Exception as e:
                 raise InvalidSignatureError('Signature verification failed: %s' % e)
+        elif key is not None and key not in [None, '', 'none']:
+            try:
+                key = alg_obj.prepare_key(key)
+            except Exception:
+                pass
 
         return {
             'header': header,
